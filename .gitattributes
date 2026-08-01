@@ -1,0 +1,10 @@
+* text=auto
+
+# Netlify builds on Linux. A shell script checked out with CRLF fails there
+# with "bad interpreter: /bin/bash^M", so pin these to LF.
+*.sh   text eol=lf
+*.toml text eol=lf
+_headers text eol=lf
+
+*.png binary
+*.ico binary

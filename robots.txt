@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://felix-techspace.netlify.app/sitemap.xml

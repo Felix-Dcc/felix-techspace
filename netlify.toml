@@ -1,0 +1,20 @@
+# Netlify configuration.
+#
+# The site is published from _deploy/, a staged copy containing only production
+# files. Source-side tooling (_shots/, _original-backup/, assets/*.py) is
+# deliberately excluded — those scripts embed absolute local paths.
+#
+# Rebuild the staging folder after editing any source file:
+#   bash stage.sh
+#
+# Security and caching headers live in _deploy/_headers so they apply to
+# drag-and-drop uploads too, not just CLI deploys.
+
+[build]
+  publish = "_deploy"
+  # _deploy/ is gitignored — Netlify regenerates it on every build, so the
+  # repository never carries a duplicate copy of the site.
+  command = "bash stage.sh"
+
+[build.environment]
+  NODE_VERSION = "20"
