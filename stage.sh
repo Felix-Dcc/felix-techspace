@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 rm -rf _deploy
 mkdir -p _deploy/assets
 
-cp index.html style.css script.js site.webmanifest robots.txt sitemap.xml _deploy/
+cp index.html style.css script.js theme-init.js site.webmanifest robots.txt sitemap.xml _deploy/
 cp assets/*.png assets/*.ico _deploy/assets/
 
 # Unreferenced placeholder — don't publish a "REPLACE ME" image.

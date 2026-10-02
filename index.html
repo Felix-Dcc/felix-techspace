@@ -7,27 +7,11 @@
 
   <!-- ============================================================
        THEME BOOTSTRAP — must run before first paint (fixes FOUC).
-       Resolves: saved preference → OS preference → dark.
-       Kept inline and synchronous on purpose; do not move to script.js.
+       Synchronous on purpose: no defer/async, and do not fold it into
+       script.js. A file rather than inline so the CSP needs no
+       'unsafe-inline'.
        ============================================================ -->
-  <script>
-    (function () {
-      var root = document.documentElement;
-      try {
-        var saved = localStorage.getItem('theme');
-        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-        root.setAttribute('data-theme', theme);
-      } catch (e) { /* private mode — fall through to the dark default */ }
-      // Marks that scripting is alive. Scroll-reveal only hides content while
-      // this class is present. script.js adds .reveal-ready once it has taken
-      // over; if it never does (failed to load, or threw first), drop the
-      // class so the page falls back to plain, visible content.
-      root.classList.add('js');
-      setTimeout(function () {
-        if (!root.classList.contains('reveal-ready')) root.classList.remove('js');
-      }, 3000);
-    })();
-  </script>
+  <script src="theme-init.js"></script>
 
   <!-- ── Primary meta ─────────────────────────────────────────── -->
   <title>Felix Osei-Poku — Backend Software Engineer</title>
@@ -73,13 +57,15 @@
   <link rel="manifest" href="site.webmanifest">
 
   <!-- ── Fonts ────────────────────────────────────────────────── -->
+  <!-- Loads as media="print" so it never blocks first paint; script.js
+       switches it to "all" (an inline onload would need 'unsafe-inline'). -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet"
+  <link rel="stylesheet" id="fontCss"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-    media="print" onload="this.media='all'">
+    media="print">
   <noscript>
     <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">

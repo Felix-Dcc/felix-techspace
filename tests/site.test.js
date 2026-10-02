@@ -131,6 +131,7 @@ async function serve(route, opts, log) {
   }
 
   if (url.hostname === 'fonts.googleapis.com') {
+    if (opts.fontDelay) await new Promise((r) => setTimeout(r, opts.fontDelay));
     return route.fulfill({ status: 200, contentType: 'text/css', body: '/* font stub */' });
   }
 
@@ -165,7 +166,7 @@ async function open(opts = {}) {
   });
   if (opts.init) await context.addInitScript(opts.init);
   await context.route('**/*', (route) => serve(route, opts, log));
-  await page.goto(ORIGIN + '/');
+  await page.goto(ORIGIN + '/', { waitUntil: opts.waitUntil || 'load' });
   return { page, context, log };
 }
 
@@ -555,3 +556,77 @@ for (const scheme of ['light', 'dark']) {
     await close(t);
   });
 }
+
+/* ==========================================================================
+   Fix: a CSP without 'unsafe-inline'
+   ========================================================================== */
+
+function cspDirectives() {
+  const csp = headerValue('/', 'Content-Security-Policy');
+  return Object.fromEntries(csp.split(';').map((d) => d.trim().split(/\s+/)).map(([k, ...v]) => [k, v]));
+}
+
+test('CSP allows no inline script or inline style', () => {
+  const csp = cspDirectives();
+  assert.ok(csp['script-src'], 'script-src must be set');
+  assert.ok(!csp['script-src'].includes("'unsafe-inline'"), 'script-src: ' + csp['script-src'].join(' '));
+  assert.ok(!csp['style-src'].includes("'unsafe-inline'"), 'style-src: ' + csp['style-src'].join(' '));
+});
+
+test('markup has no inline scripts, event handlers or style attributes', async () => {
+  const t = await open({ javaScriptEnabled: false });
+  const found = await t.page.evaluate(() => ({
+    scripts: [...document.scripts].filter((s) => !s.src && s.type !== 'application/ld+json').length,
+    handlers: [...document.querySelectorAll('*')].flatMap((e) => e.getAttributeNames().filter((n) => n.startsWith('on'))),
+    styles: document.querySelectorAll('[style]').length,
+  }));
+  assert.deepEqual(found, { scripts: 0, handlers: [], styles: 0 });
+  await close(t);
+});
+
+test('theme and html.js are set before <body> is parsed', async () => {
+  const t = await open({
+    colorScheme: 'dark',
+    init: `localStorage.setItem('theme', 'light');
+      new MutationObserver((m, o) => {
+        if (!document.body) return;
+        window.__atBody = document.documentElement.getAttribute('data-theme') + '|' + document.documentElement.className;
+        o.disconnect();
+      }).observe(document, { childList: true, subtree: true });`,
+  });
+  const atBody = await t.page.evaluate(() => window.__atBody);
+  assert.match(atBody, /^light\|.*\bjs\b/);
+  await close(t);
+});
+
+test('web fonts stylesheet is applied under the CSP', async () => {
+  const t = await open();
+  await t.page.waitForFunction(() => {
+    const l = document.querySelector('link[rel="stylesheet"][href*="fonts.googleapis.com"]');
+    return l && l.media === 'all';
+  }, null, { timeout: 3000 });
+  assert.deepEqual(await t.page.evaluate(() => window.__csp || []), []);
+  await close(t);
+});
+
+test('project cards get their language gradient under the CSP', async () => {
+  const t = await open();
+  await t.page.waitForSelector('#projectsGrid article');
+  const thumbs = await t.page.$$eval('#projectsGrid .project-thumb', (els) =>
+    els.map((e) => [e.textContent.trim(), getComputedStyle(e).backgroundImage]));
+  for (const [lang, bg] of thumbs) assert.match(bg, /linear-gradient/, lang + ' thumbnail has no gradient');
+  const byLang = Object.fromEntries(thumbs);
+  assert.notEqual(byLang.Python, byLang.Go, 'languages keep distinct gradients');
+  assert.ok(byLang.Code, 'a repo with no language still renders');
+  assert.deepEqual(await t.page.evaluate(() => window.__csp || []), []);
+  await close(t);
+});
+
+test('web fonts stylesheet is applied when it arrives after script.js', async () => {
+  // DOMContentLoaded: script.js has run, the stylesheet is still on its way.
+  const t = await open({ fontDelay: 1500, waitUntil: 'domcontentloaded' });
+  const media = () => t.page.$eval('#fontCss', (l) => l.media);
+  assert.equal(await media(), 'print', 'still loading: must not block or apply yet');
+  await t.page.waitForFunction(() => document.getElementById('fontCss').media === 'all', null, { timeout: 5000 });
+  await close(t);
+});

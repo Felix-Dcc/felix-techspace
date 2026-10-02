@@ -768,6 +768,21 @@ b, strong { color: var(--text); font-weight: 650; }
   border-bottom: 1px solid var(--hairline);
   overflow: hidden;
 }
+/* Language gradients, keyed by script.js. Fixed brand colours, identical in
+   both themes. */
+.lang-python     { background: linear-gradient(140deg, #3776ab, #ffd43b); }
+.lang-go         { background: linear-gradient(140deg, #00add8, #5dc9e2); }
+.lang-javascript { background: linear-gradient(140deg, #f7df1e, #e2b714); }
+.lang-typescript { background: linear-gradient(140deg, #3178c6, #235a97); }
+.lang-html       { background: linear-gradient(140deg, #e34c26, #f06529); }
+.lang-css        { background: linear-gradient(140deg, #264de4, #2965f1); }
+.lang-java       { background: linear-gradient(140deg, #007396, #ed8b00); }
+.lang-cpp        { background: linear-gradient(140deg, #00599c, #004482); }
+.lang-c          { background: linear-gradient(140deg, #555, #a8b9cc); }
+.lang-shell      { background: linear-gradient(140deg, #89e051, #4e9a06); }
+.lang-dockerfile { background: linear-gradient(140deg, #0db7ed, #0a6a9c); }
+.lang-default    { background: linear-gradient(140deg, #6366f1, #a78bfa); }
+
 .project-thumb::after {
   content: '';
   position: absolute; inset: 0;

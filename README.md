@@ -5,7 +5,7 @@ Personal portfolio for **Felix Osei-Poku**, backend software engineer.
 Live: **https://felix-techspace.netlify.app**
 
 Hand-built with vanilla HTML, CSS and JavaScript — no framework, no bundler, no
-build step. Three source files, zero runtime dependencies, and two network
+build step. Four source files, zero runtime dependencies, and two network
 calls: the GitHub API for the projects grid, and the contact form's POST to
 Netlify Forms.
 
@@ -13,10 +13,15 @@ Netlify Forms.
 
 ## Implementation notes
 
-**Theme without a flash.** A synchronous script in `<head>` resolves saved
-preference → OS preference → dark, and stamps `data-theme` on the root element
-before first paint. Every colour is a CSS custom property, so a theme flip
-cannot leave a component behind.
+**Theme without a flash.** A tiny synchronous script in `<head>`
+(`theme-init.js`) resolves saved preference → OS preference → dark, and stamps
+`data-theme` on the root element before first paint. Every colour is a CSS
+custom property, so a theme flip cannot leave a component behind.
+
+**A CSP with no `'unsafe-inline'`.** No inline script, event-handler attribute
+or `style` attribute anywhere — the theme bootstrap is its own file, the
+non-blocking font stylesheet is switched on from `script.js`, and project-card
+gradients are CSS classes. Injected markup can't run even if it gets in.
 
 **Content is visible if JavaScript fails.** Scroll-reveal sets `opacity: 0`,
 which would blank the page if the observer never fired — so the hidden state is
@@ -49,9 +54,10 @@ where hover darkens rather than lightens to preserve the ratio.
 ## Structure
 
 ```
-index.html          markup + head-level theme bootstrap
+index.html          markup
+theme-init.js       synchronous theme bootstrap (runs before first paint)
 style.css           design tokens and 17 numbered sections
-script.js           9 modules: theme, nav, scroll, reveal, counters,
+script.js           10 modules: fonts, theme, nav, scroll, reveal, counters,
                     magnetic, projects, contact, misc
 _headers            CSP, HSTS and cache policy (copied into the publish dir)
 netlify.toml        build config

@@ -2,7 +2,8 @@
    Felix Osei-Poku — Portfolio
    ----------------------------------------------------------------------------
    Modules
-     theme()        Theme toggle (head script does the first paint; this syncs)
+     fonts()        Applies the non-blocking web-font stylesheet
+     theme()        Theme toggle (theme-init.js does the first paint; this syncs)
      nav()          Mobile menu, sticky state, active-link highlighting
      scrollFx()     ONE rAF-gated scroll listener: progress bar + back-to-top
      reveal()       IntersectionObserver fade-ins with stagger
@@ -51,8 +52,24 @@
 
 
   /* ======================================================================
+     FONTS
+     The Google Fonts stylesheet loads as media="print" so it never blocks
+     first paint; switch it on once it has arrived. This used to be an
+     inline onload attribute, which the CSP would have to allow.
+     ====================================================================== */
+
+  function fonts() {
+    var link = $('#fontCss');
+    if (!link) return;
+    var apply = function () { link.media = 'all'; };
+    if (link.sheet) apply();
+    else link.addEventListener('load', apply);
+  }
+
+
+  /* ======================================================================
      THEME
-     The <head> script already applied the correct theme before first paint.
+     theme-init.js already applied the correct theme before first paint.
      This only keeps the button's label/state in sync and handles clicks.
      ====================================================================== */
 
@@ -345,19 +362,12 @@
   var EXCLUDE = ['laundromart-'];                    // featured in its own section
   // TODO: add repo names here to hide them, e.g. 'Hello-World'
 
-  var LANG_STYLE = {
-    'Python':     { grad: 'linear-gradient(140deg,#3776ab,#ffd43b)' },
-    'Go':         { grad: 'linear-gradient(140deg,#00add8,#5dc9e2)' },
-    'JavaScript': { grad: 'linear-gradient(140deg,#f7df1e,#e2b714)' },
-    'TypeScript': { grad: 'linear-gradient(140deg,#3178c6,#235a97)' },
-    'HTML':       { grad: 'linear-gradient(140deg,#e34c26,#f06529)' },
-    'CSS':        { grad: 'linear-gradient(140deg,#264de4,#2965f1)' },
-    'Java':       { grad: 'linear-gradient(140deg,#007396,#ed8b00)' },
-    'C++':        { grad: 'linear-gradient(140deg,#00599c,#004482)' },
-    'C':          { grad: 'linear-gradient(140deg,#555,#a8b9cc)' },
-    'Shell':      { grad: 'linear-gradient(140deg,#89e051,#4e9a06)' },
-    'Dockerfile': { grad: 'linear-gradient(140deg,#0db7ed,#0a6a9c)' },
-    'default':    { grad: 'linear-gradient(140deg,#6366f1,#a78bfa)' }
+  // GitHub language → .lang-* thumbnail class (gradients live in style.css,
+  // so the CSP can forbid inline style attributes).
+  var LANG_CLASS = {
+    'Python': 'python', 'Go': 'go', 'JavaScript': 'javascript', 'TypeScript': 'typescript',
+    'HTML': 'html', 'CSS': 'css', 'Java': 'java', 'C++': 'cpp', 'C': 'c',
+    'Shell': 'shell', 'Dockerfile': 'dockerfile'
   };
 
   function skeletonMarkup() {
@@ -374,7 +384,9 @@
 
   function cardMarkup(repo) {
     var lang = repo.language || 'Code';
-    var style = LANG_STYLE[repo.language] || LANG_STYLE['default'];
+    var langClass = Object.prototype.hasOwnProperty.call(LANG_CLASS, repo.language)
+      ? LANG_CLASS[repo.language]
+      : 'default';
     var repoUrl = escapeHtml(safeUrl(repo.html_url));
     var homepage = repo.homepage ? escapeHtml(safeUrl(repo.homepage)) : '';
     var updated = repo.pushed_at ? new Date(repo.pushed_at) : null;
@@ -384,7 +396,7 @@
 
     return '' +
       '<article class="card project reveal">' +
-      '  <div class="project-thumb" style="background:' + style.grad + '">' +
+      '  <div class="project-thumb lang-' + langClass + '">' +
       '    <span class="project-lang">' + escapeHtml(lang) + '</span>' +
       '  </div>' +
       '  <div class="project-body">' +
@@ -597,7 +609,7 @@
   // Each module runs in isolation: one that throws is logged and skipped,
   // and never takes the contact form or the reveal down with it.
   function init() {
-    [theme, nav, scrollFx, reveal, counters, magnetic, projects, contact, misc]
+    [fonts, theme, nav, scrollFx, reveal, counters, magnetic, projects, contact, misc]
       .forEach(function (module) {
         try { module(); }
         catch (e) { console.error('[' + module.name + ']', e); }
