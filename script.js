@@ -407,6 +407,9 @@
       var raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       var box = JSON.parse(raw);
+      // Anything not shaped like writeCache() output is refetched, not trusted.
+      if (!box || typeof box.at !== 'number' || !Array.isArray(box.data)) return null;
+      if (!box.data.every(function (r) { return r && typeof r === 'object'; })) return null;
       if (Date.now() - box.at > CACHE_TTL) return null;
       return box.data;
     } catch (e) { return null; }

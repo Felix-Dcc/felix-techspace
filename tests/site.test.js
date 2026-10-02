@@ -417,3 +417,27 @@ test('crafted repo URLs cannot inject attributes or run script', async () => {
   assert.equal(await t.page.$$eval('#projectsGrid img, #projectsGrid b', (e) => e.length), 0);
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: a corrupted repo cache is ignored, not trusted
+   ========================================================================== */
+
+for (const [label, data] of [['an object', { oops: 1 }], ['null entries', [null, 7]], ['no timestamp', undefined]]) {
+  test('a cached repo list with ' + label + ' is refetched instead of crashing', async () => {
+    const box = data === undefined ? { data: [] } : { at: Date.now(), data };
+    const t = await open({ init: `localStorage.setItem('gh:repos:v2', ${JSON.stringify(JSON.stringify(box))});` });
+    await t.page.waitForSelector('#projectsGrid article');
+    const names = await t.page.$$eval('#projectsGrid h3', (h) => h.map((e) => e.textContent));
+    assert.deepEqual(names, REPO_ORDER);
+    assert.deepEqual(t.log.errors, []);
+    await close(t);
+  });
+}
+
+test('a valid cached repo list is used without calling the API', async () => {
+  const box = { at: Date.now(), data: [repo('from-cache')] };
+  const t = await open({ init: `localStorage.setItem('gh:repos:v2', ${JSON.stringify(JSON.stringify(box))});` });
+  await t.page.waitForSelector('#projectsGrid article');
+  assert.deepEqual(await t.page.$$eval('#projectsGrid h3', (h) => h.map((e) => e.textContent)), ['from-cache']);
+  await close(t);
+});
