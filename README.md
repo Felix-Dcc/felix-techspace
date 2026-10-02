@@ -68,6 +68,7 @@ assets/
   _generate_assets.py   favicons, web manifest icons, social card
   _prepare_shots.py     crops/resizes raw captures to mockup dimensions
 sitemap.xml  robots.txt  site.webmanifest
+tests/              browser regression tests (never deployed)
 ```
 
 ## Local development
@@ -76,6 +77,22 @@ Any static server works:
 
 ```bash
 python -m http.server 4173
+```
+
+## Tests
+
+`tests/site.test.js` builds `_deploy/` with `stage.sh` and drives it in
+Chromium with the production headers (CSP included) applied, stubbing the
+GitHub API, Google Fonts and the form endpoint. It covers the reveal and its
+failsafes, the projects grid and its cache, the contact form with and without
+JavaScript, print output, contrast in both themes, the CSP, `_headers`, cache
+busting and the publish step.
+
+```bash
+cd tests
+npm install
+npx playwright install chromium
+npm test
 ```
 
 ## Deployment
