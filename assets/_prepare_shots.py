@@ -27,6 +27,10 @@ SRC_MOBILE = r"C:\Users\user\Downloads\Telegram Desktop\photo_2026-08-01_10-09-1
 # the original exactly as captured. (Only applies to the sign-in image.)
 EMAIL_REPLACEMENT = "admin@laundromart.xyz"
 
+# The email-field rectangle in build_login() was measured on a capture of this
+# size. A different capture would leave the real address showing, so refuse.
+LOGIN_CAPTURE_SIZE = (1919, 914)
+
 
 def find_font(names, size):
     for d in (r"C:\Windows\Fonts", "/usr/share/fonts", "/Library/Fonts"):
@@ -170,7 +174,13 @@ def build_desktop():
 
 def build_login():
     """Console sign-in — kept as a spare, not currently used on the page."""
-    im, top = trim_browser_sliver(Image.open(SRC_LOGIN).convert("RGB"))
+    src = Image.open(SRC_LOGIN)
+    if EMAIL_REPLACEMENT and src.size != LOGIN_CAPTURE_SIZE:
+        raise SystemExit(
+            "build_login: the email field was measured on a %dx%d capture, but\n"
+            "  %s\nis %dx%d. Re-measure x0/y0/x1/y1 below first, or the real address\n"
+            "may stay visible." % (LOGIN_CAPTURE_SIZE + (SRC_LOGIN,) + src.size))
+    im, top = trim_browser_sliver(src.convert("RGB"))
     W, H = im.size
 
     if EMAIL_REPLACEMENT:
