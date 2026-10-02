@@ -785,3 +785,18 @@ test('an image is published as soon as the page references it', () => {
   assert.ok(published.includes('laundromart-mobile-2.png'));
   assert.ok(!published.includes('laundromart-desktop-login.png'));
 });
+
+/* ==========================================================================
+   Fix: the "Case study — soon" placeholder is not a live control
+   ========================================================================== */
+
+test('the case-study placeholder is skipped by keyboard and is not a link', async () => {
+  const t = await open();
+  const ph = t.page.locator('.featured-cta .is-disabled');
+  assert.equal(await ph.evaluate((e) => e.matches('a[href], button, [tabindex]:not([tabindex="-1"])')), false);
+  await t.page.focus('.featured-cta a[href*="laundromart-"]');   // "Source code", just before it
+  await t.page.keyboard.press('Tab');
+  assert.doesNotMatch(await t.page.evaluate(() => document.activeElement.textContent), /Case study/);
+  assert.match(await ph.textContent(), /Case study — soon/);
+  await close(t);
+});
