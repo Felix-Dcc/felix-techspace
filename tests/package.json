@@ -1,0 +1,11 @@
+{
+  "name": "felix-techspace-tests",
+  "private": true,
+  "description": "Browser regression tests for the portfolio. Not part of the site; never deployed.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}
