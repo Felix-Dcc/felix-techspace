@@ -707,3 +707,48 @@ test('every path gets the full set of security headers', () => {
 test('Permissions-Policy lists only features browsers recognise', () => {
   assert.doesNotMatch(headerValue('/', 'Permissions-Policy'), /interest-cohort/);
 });
+
+/* ==========================================================================
+   Fix: a deploy must reach returning visitors (cache busting)
+   ========================================================================== */
+
+const crypto = require('node:crypto');
+const VERSIONED = ['style.css', 'script.js', 'theme-init.js'];
+
+test('staged HTML references CSS/JS by content hash', () => {
+  const html = fs.readFileSync(path.join(DEPLOY, 'index.html'), 'utf8');
+  for (const f of VERSIONED) {
+    const v = crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex').slice(0, 10);
+    assert.ok(html.includes('"' + f + '?v=' + v + '"'), f + ' should be referenced as ' + f + '?v=' + v);
+  }
+});
+
+test('versioned CSS/JS are cached long-term; HTML always revalidates', () => {
+  for (const f of VERSIONED) {
+    assert.match(headerValue('/' + f, 'Cache-Control'), /max-age=31536000.*immutable/, f);
+  }
+  assert.match(headerValue('/', 'Cache-Control'), /max-age=0, must-revalidate/);
+});
+
+// Runs stage.sh against a throwaway copy of the site, after `mutate(dir)`.
+function stageCopy(mutate) {
+  const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'stage-'));
+  for (const f of ['index.html', 'style.css', 'script.js', 'theme-init.js', 'site.webmanifest',
+    'robots.txt', 'sitemap.xml', '_headers', 'stage.sh']) {
+    fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+  }
+  fs.cpSync(path.join(ROOT, 'assets'), path.join(dir, 'assets'), { recursive: true });
+  if (mutate) mutate(dir);
+  const r = spawnSync('bash', ['stage.sh'], { cwd: dir, encoding: 'utf8' });
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { status: r.status, out: r.stdout + r.stderr };
+}
+
+test('stage.sh refuses to publish when a CSS/JS reference cannot be versioned', () => {
+  const r = stageCopy((dir) => {
+    const f = path.join(dir, 'index.html');
+    fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace('src="script.js"', "src='script.js'"));
+  });
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /ERROR: index.html has no "script\.js" reference/);
+});
