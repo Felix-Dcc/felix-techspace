@@ -393,3 +393,27 @@ test('the failsafe stays quiet on a healthy page (below-the-fold still animates)
   assert.equal(contact, '0', 'off-screen sections should still be waiting to animate in');
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: GitHub data must not be able to inject markup
+   ========================================================================== */
+
+test('crafted repo URLs cannot inject attributes or run script', async () => {
+  const payload = 'http://x"onfocus="window.__pwned=1"autofocus="/';
+  const t = await open({
+    repos: [repo('evil', {
+      homepage: payload,
+      html_url: payload.replace('__pwned=1', '__pwned=2'),
+      description: '<img src=x onerror="window.__pwned=3">',
+      language: '<b>Py</b>',
+    })],
+  });
+  await t.page.waitForSelector('#projectsGrid article');
+  await t.page.waitForTimeout(500);
+  const attrs = await t.page.$$eval('#projectsGrid article *', (els) =>
+    els.flatMap((e) => e.getAttributeNames()).filter((n) => /^on|autofocus/.test(n)));
+  assert.deepEqual(attrs, []);
+  assert.equal(await t.page.evaluate(() => window.__pwned), undefined);
+  assert.equal(await t.page.$$eval('#projectsGrid img, #projectsGrid b', (e) => e.length), 0);
+  await close(t);
+});

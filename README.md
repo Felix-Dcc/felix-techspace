@@ -27,8 +27,9 @@ plain, readable page.
 
 **GitHub projects grid.** Fetches repositories at runtime, filters forks and
 archived repos, and renders them with a 6-hour `localStorage` cache — the
-anonymous API allows 60 requests/hour per IP. Every interpolated field goes
-through an HTML escaper, and every URL through an http(s) allowlist.
+anonymous API allows 60 requests/hour per IP. Every URL goes through an
+http(s) allowlist, and every interpolated value — URLs included — through an
+HTML escaper.
 
 **One scroll listener.** Progress bar and back-to-top share a single passive,
 rAF-gated handler. Sticky navigation and active-link highlighting use

@@ -38,7 +38,10 @@
       .replace(/'/g, '&#39;');
   }
 
-  /** Only allow http(s) URLs through to an href. */
+  /**
+   * Only allow http(s) URLs through to an href. The result still goes through
+   * escapeHtml(): the URL parser keeps characters such as " in a hostname.
+   */
   function safeUrl(value) {
     try {
       var u = new URL(value, window.location.origin);
@@ -372,8 +375,8 @@
   function cardMarkup(repo) {
     var lang = repo.language || 'Code';
     var style = LANG_STYLE[repo.language] || LANG_STYLE['default'];
-    var repoUrl = safeUrl(repo.html_url);
-    var homepage = repo.homepage ? safeUrl(repo.homepage) : '';
+    var repoUrl = escapeHtml(safeUrl(repo.html_url));
+    var homepage = repo.homepage ? escapeHtml(safeUrl(repo.homepage)) : '';
     var updated = repo.pushed_at ? new Date(repo.pushed_at) : null;
     var when = updated
       ? updated.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
