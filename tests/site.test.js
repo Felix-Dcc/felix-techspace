@@ -223,11 +223,14 @@ function contrastFailures({ selector, mode, min, skip }) {
     return (hi + 0.05) / (lo + 0.05);
   };
   const white = { r: 255, g: 255, b: 255, a: 1 };
+  // null when the backdrop includes an image or gradient (can't be judged).
   const background = (el) => {
     if (mode === 'paper') return white;
     const layers = [];
     for (let n = el; n; n = n.parentElement) {
-      const c = parse(getComputedStyle(n).backgroundColor);
+      const cs = getComputedStyle(n);
+      if (cs.backgroundImage !== 'none') return null;
+      const c = parse(cs.backgroundColor);
       if (c && c.a > 0) { layers.push(c); if (c.a === 1) break; }
     }
     return layers.reverse().reduce((acc, c) => over(c, acc), white);
@@ -248,9 +251,15 @@ function contrastFailures({ selector, mode, min, skip }) {
     if (!el.getClientRects().length || rect.width <= 1 || cs.visibility === 'hidden') continue;
     const bg = background(el);
     const fg = parse(cs.color);
+    if (!bg || !fg || fg.a === 0) continue;   // over an image, or gradient-clipped text
     const text = over({ ...fg, a: fg.a * opacity(el) }, bg);
     const r = ratio(text, bg);
-    if (r < min) failures.push(el.textContent.trim().slice(0, 40) + ' → ' + r.toFixed(2));
+    // WCAG large text (24px, or 18.66px bold) needs 3:1 instead of 4.5:1.
+    const size = parseFloat(cs.fontSize);
+    const large = size >= 24 || (size >= 18.66 && Number(cs.fontWeight) >= 700);
+    if (r < (large ? Math.min(min, 3) : min)) {
+      failures.push((el.className || el.tagName) + ' "' + el.textContent.trim().slice(0, 30) + '" ' + r.toFixed(2));
+    }
   }
   return failures;
 }
@@ -630,3 +639,45 @@ test('web fonts stylesheet is applied when it arrives after script.js', async ()
   await t.page.waitForFunction(() => document.getElementById('fontCss').media === 'all', null, { timeout: 5000 });
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: WCAG AA contrast (4.5:1, or 3:1 for large text) in both themes
+   ========================================================================== */
+
+for (const scheme of ['light', 'dark']) {
+  test('contrast (' + scheme + '): form errors and status messages meet AA', async () => {
+    const t = await open({ colorScheme: scheme, formStatus: 404 });
+    await t.page.locator('#contactForm').scrollIntoViewIfNeeded();
+    await t.page.waitForTimeout(1200);
+    const check = async (what) => {
+      await t.page.waitForTimeout(400);  // colour transitions
+      const f = await t.page.evaluate(contrastFailures, { selector: '#contactForm *', mode: 'background', min: 4.5 });
+      assert.deepEqual(f, [], what);
+    };
+    await t.page.click('#cfSubmit');   // empty → field errors + failure status
+    await check('validation errors');
+    await fillForm(t.page);
+    await t.page.click('#cfSubmit');   // endpoint 404 → failure status
+    await t.page.waitForSelector('#formStatus.is-fail:not(:empty)');
+    await check('send failure');
+    await t.context.unroute('**/*');
+    await t.context.route('**/*', (route) => serve(route, {}, t.log));
+    await fillForm(t.page);
+    await t.page.click('#cfSubmit');   // endpoint 200 → success status
+    await t.page.waitForSelector('#formStatus.is-ok');
+    await check('success');
+    await close(t);
+  });
+
+  test('contrast (' + scheme + '): all visible text on screen meets AA', async () => {
+    const t = await open({ colorScheme: scheme });
+    await scrollThrough(t.page);
+    await waitAllRevealed(t.page, 3000);
+    await t.page.waitForTimeout(300);
+    const failures = await t.page.evaluate(contrastFailures, {
+      selector: 'body *', mode: 'background', min: 4.5, skip: '.is-disabled',
+    });
+    assert.deepEqual(failures, []);
+    await close(t);
+  });
+}

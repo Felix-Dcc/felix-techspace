@@ -42,9 +42,11 @@ rAF-gated handler. Sticky navigation and active-link highlighting use
 `IntersectionObserver` instead of scroll math.
 
 **Accessibility.** Single `h1`, no heading-level skips, labelled landmarks and
-sections, skip link, visible focus rings, and every text pair verified at WCAG
-AA contrast in both themes — including a dedicated token pair for solid buttons,
-where hover darkens rather than lightens to preserve the ratio.
+sections, skip link, visible focus rings, and every text pair at WCAG AA
+contrast in both themes — including a dedicated token pair for solid buttons,
+where hover darkens rather than lightens to preserve the ratio, and text-safe
+`--danger` / `--signal-ink` tokens for form messages. The test suite measures
+every visible text element, on screen and in print.
 
 **Motion.** All animation sits behind `prefers-reduced-motion`. There are also
 `forced-colors` and print stylesheets.
