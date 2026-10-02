@@ -9,7 +9,7 @@
      counters()     Count-up animation for the metric strip
      magnetic()     Subtle pointer-follow on primary buttons
      projects()     GitHub repos, escaped + cached in localStorage
-     contact()      Client-side validation, Formspree POST, mailto fallback
+     contact()      Client-side validation, background POST to Netlify Forms
      misc()         Footer year
 
    Conventions
@@ -486,6 +486,8 @@
 
   /* ======================================================================
      CONTACT FORM
+     Netlify Forms accepts a url-encoded POST to any page of the site; the
+     hidden form-name field tells it which form the fields belong to.
      ====================================================================== */
 
   var MAILTO = 'oseipokufelix0@gmail.com';
@@ -493,6 +495,10 @@
   function contact() {
     var form = $('#contactForm');
     if (!form) return;
+
+    // The markup leaves browser validation on for visitors without JS; with
+    // JS, the inline messages below take over.
+    form.noValidate = true;
 
     var status = $('#formStatus');
     var submit = $('#cfSubmit');
@@ -544,29 +550,15 @@
       var bad = validate(true);
       if (bad) { bad.focus(); say('Please fix the highlighted fields.', 'fail'); return; }
 
-      var action = form.getAttribute('action') || '';
-      var configured = action.indexOf('YOUR_FORM_ID') === -1 && /^https?:/.test(action);
-
-      // Not wired to a form service yet → hand off to the visitor's mail client.
-      if (!configured) {
-        var subject = encodeURIComponent('Portfolio enquiry from ' + $('#cf-name').value.trim());
-        var body = encodeURIComponent(
-          $('#cf-msg').value.trim() + '\n\n— ' + $('#cf-name').value.trim() + ' (' + $('#cf-email').value.trim() + ')'
-        );
-        window.location.href = 'mailto:' + MAILTO + '?subject=' + subject + '&body=' + body;
-        say('Opening your email app…');
-        return;
-      }
-
       submit.disabled = true;
       var label = submit.textContent;
       submit.textContent = 'Sending…';
       say('');
 
-      fetch(action, {
+      fetch('/', {
         method: 'POST',
-        body: new FormData(form),
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(form)).toString()
       })
         .then(function (res) {
           if (!res.ok) throw new Error('Status ' + res.status);

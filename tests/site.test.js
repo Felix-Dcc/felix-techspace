@@ -441,3 +441,93 @@ test('a valid cached repo list is used without calling the API', async () => {
   assert.deepEqual(await t.page.$$eval('#projectsGrid h3', (h) => h.map((e) => e.textContent)), ['from-cache']);
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: the contact form must actually deliver messages (Netlify Forms)
+   ========================================================================== */
+
+async function fillForm(page) {
+  await page.locator('#contactForm').scrollIntoViewIfNeeded();
+  await page.fill('#cf-name', 'Ada Lovelace');
+  await page.fill('#cf-email', 'ada@example.com');
+  await page.fill('#cf-msg', 'Hello Felix — I have a backend role for you.');
+}
+
+test('contact form: invalid input shows errors and sends nothing', async () => {
+  const t = await open();
+  await t.page.locator('#contactForm').scrollIntoViewIfNeeded();
+  await t.page.click('#cfSubmit');
+  assert.equal(await t.page.getAttribute('#formStatus', 'class'), 'form-status is-fail');
+  for (const id of ['cf-name', 'cf-email', 'cf-msg']) {
+    assert.equal(await t.page.isVisible('#' + id + '-err'), true, id + ' error should show');
+  }
+  assert.equal(await t.page.evaluate(() => document.activeElement.id), 'cf-name');
+  assert.equal(t.log.posts.length, 0);
+  await close(t);
+});
+
+test('contact form: a valid message is posted to Netlify Forms', async () => {
+  const t = await open();
+  await fillForm(t.page);
+  await t.page.click('#cfSubmit');
+  await t.page.waitForSelector('#formStatus.is-ok');
+  assert.equal(t.log.posts.length, 1);
+  const post = t.log.posts[0];
+  assert.equal(post.path, '/');
+  assert.match(post.type, /application\/x-www-form-urlencoded/);
+  const body = Object.fromEntries(new URLSearchParams(post.body));
+  assert.deepEqual(body, {
+    'form-name': 'contact',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    message: 'Hello Felix — I have a backend role for you.',
+    'bot-field': '',
+  });
+  assert.equal(await t.page.inputValue('#cf-msg'), '', 'form should reset after sending');
+  assert.equal(await t.page.isEnabled('#cfSubmit'), true);
+  await close(t);
+});
+
+test('contact form: a failed send says so and keeps the message', async () => {
+  const t = await open({ formStatus: 404 });
+  await fillForm(t.page);
+  await t.page.click('#cfSubmit');
+  await t.page.waitForSelector('#formStatus.is-fail');
+  assert.match(await t.page.textContent('#formStatus'), /oseipokufelix0@gmail\.com/);
+  assert.equal(await t.page.inputValue('#cf-msg'), 'Hello Felix — I have a backend role for you.');
+  assert.equal(await t.page.isEnabled('#cfSubmit'), true);
+  await close(t);
+});
+
+test('contact form without JavaScript: native validation and a working POST target', async () => {
+  const t = await open({ javaScriptEnabled: false });
+  const form = t.page.locator('#contactForm');
+  assert.equal(await form.getAttribute('novalidate'), null, 'browser validation must stay on without JS');
+  assert.equal(await form.getAttribute('method'), 'POST');
+  assert.equal(await form.getAttribute('data-netlify'), 'true');
+  assert.equal(await form.getAttribute('netlify-honeypot'), 'bot-field');
+  assert.equal(await form.getAttribute('action'), null, 'post back to the page itself');
+  assert.equal(await t.page.getAttribute('input[name="form-name"]', 'value'), 'contact');
+  assert.equal(await t.page.getAttribute('input[name="bot-field"]', 'tabindex'), '-1');
+  // Without JS there is no html.js, so nothing is hidden.
+  assert.deepEqual(await hiddenReveals(t.page), []);
+  await close(t);
+});
+
+test('contact form with JavaScript: custom validation replaces the browser bubbles', async () => {
+  const t = await open();
+  assert.equal(await t.page.$eval('#contactForm', (f) => f.noValidate), true);
+  await close(t);
+});
+
+test('contact form without JavaScript: the browser posts it to the page itself', async () => {
+  const t = await open({ javaScriptEnabled: false });
+  await fillForm(t.page);
+  await Promise.all([t.page.waitForNavigation(), t.page.click('#cfSubmit')]);
+  assert.equal(t.log.posts.length, 1);
+  assert.equal(t.log.posts[0].path, '/');
+  const body = Object.fromEntries(new URLSearchParams(t.log.posts[0].body));
+  assert.equal(body['form-name'], 'contact');
+  assert.equal(body.email, 'ada@example.com');
+  await close(t);
+});

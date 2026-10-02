@@ -763,10 +763,14 @@
           </ul>
         </div>
 
-        <!-- TODO: create a free form endpoint at https://formspree.io and paste the ID below.
-             Until then the form falls back to opening the visitor's mail client. -->
-        <form class="card contact-form reveal" id="contactForm" method="POST"
-          action="https://formspree.io/f/YOUR_FORM_ID" novalidate>
+        <!-- Netlify Forms: Netlify finds this form when it deploys _deploy/ and
+             lists submissions under Forms in the site dashboard (form detection
+             must be enabled there once). script.js posts it in the background;
+             without JS the browser posts it natively and Netlify answers with
+             its own thank-you page. -->
+        <form class="card contact-form reveal" id="contactForm" name="contact" method="POST"
+          data-netlify="true" netlify-honeypot="bot-field">
+          <input type="hidden" name="form-name" value="contact">
           <h3>Send a message</h3>
 
           <div class="field">
@@ -789,10 +793,11 @@
             <p class="err" id="cf-msg-err" hidden>Please add a short message.</p>
           </div>
 
-          <!-- honeypot: bots fill it, humans never see it -->
+          <!-- honeypot: bots fill it, humans never see it; Netlify discards
+               any submission where it has a value -->
           <div class="hp" aria-hidden="true">
             <label for="cf-company">Company</label>
-            <input id="cf-company" name="_gotcha" type="text" tabindex="-1" autocomplete="off">
+            <input id="cf-company" name="bot-field" type="text" tabindex="-1" autocomplete="off">
           </div>
 
           <button class="btn btn-primary btn-block magnetic" type="submit" id="cfSubmit">Send message</button>

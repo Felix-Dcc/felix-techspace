@@ -5,8 +5,9 @@ Personal portfolio for **Felix Osei-Poku**, backend software engineer.
 Live: **https://felix-techspace.netlify.app**
 
 Hand-built with vanilla HTML, CSS and JavaScript — no framework, no bundler, no
-build step. Three source files, zero runtime dependencies, one network call
-(the GitHub API, for the projects grid).
+build step. Three source files, zero runtime dependencies, and two network
+calls: the GitHub API for the projects grid, and the contact form's POST to
+Netlify Forms.
 
 ---
 
@@ -79,6 +80,11 @@ publishing a file containing a local path.
 ```bash
 bash stage.sh
 ```
+
+**Contact form.** Submissions go to Netlify Forms and appear under *Forms* in
+the Netlify dashboard. Netlify only collects them once form detection is on:
+*Site configuration → Forms → Enable form detection* (one time), then redeploy.
+Set up an email notification on the same page to get each message in your inbox.
 
 ## Regenerating images
 
