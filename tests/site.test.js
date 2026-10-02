@@ -349,3 +349,47 @@ test('back-to-top button appears after scrolling and returns to the top', async 
   await t.page.waitForFunction(() => window.scrollY === 0);
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: content must stay readable when script.js doesn't run
+   ========================================================================== */
+
+async function contactWired(page) {
+  await page.focus('#cf-name');
+  await page.focus('#cf-email');
+  return (await page.getAttribute('#cf-name', 'aria-invalid')) === 'true';
+}
+
+test('content stays readable when script.js fails to load', async () => {
+  const t = await open({ block: ['/script.js'] });
+  await waitAllRevealed(t.page, 4500);
+  await close(t);
+});
+
+test('content stays readable without IntersectionObserver', async () => {
+  const t = await open({ init: 'delete window.IntersectionObserver;' });
+  await waitAllRevealed(t.page, 4500);
+  assert.deepEqual(t.log.errors, []);
+  assert.ok(await contactWired(t.page), 'contact form validation should still be wired');
+  await close(t);
+});
+
+test('a module that throws does not stop the others', async () => {
+  // nav() is the second module; make it throw part-way through.
+  const t = await open({ init: 'Element.prototype.prepend = function () { throw new Error("boom"); };' });
+  await t.page.waitForFunction(() => document.querySelector('#hero-h').classList.contains('is-visible'));
+  await t.page.waitForSelector('#projectsGrid article');
+  assert.ok(await contactWired(t.page), 'contact form validation should still be wired');
+  await t.page.click('#themeToggle');
+  assert.equal(await t.page.getAttribute('html', 'data-theme'), 'dark');
+  await close(t);
+});
+
+test('the failsafe stays quiet on a healthy page (below-the-fold still animates)', async () => {
+  const t = await open();
+  await t.page.waitForTimeout(3500);
+  assert.ok(await t.page.evaluate(() => document.documentElement.classList.contains('js')));
+  const contact = await t.page.$eval('#contactForm', (e) => getComputedStyle(e).opacity);
+  assert.equal(contact, '0', 'off-screen sections should still be waiting to animate in');
+  await close(t);
+});

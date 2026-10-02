@@ -12,14 +12,20 @@
        ============================================================ -->
   <script>
     (function () {
+      var root = document.documentElement;
       try {
         var saved = localStorage.getItem('theme');
         var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-        document.documentElement.setAttribute('data-theme', theme);
+        root.setAttribute('data-theme', theme);
       } catch (e) { /* private mode — fall through to the dark default */ }
-      // Marks that scripting is alive. Scroll-reveal only hides content when
-      // this class is present, so a JS failure can never leave a blank page.
-      document.documentElement.classList.add('js');
+      // Marks that scripting is alive. Scroll-reveal only hides content while
+      // this class is present. script.js adds .reveal-ready once it has taken
+      // over; if it never does (failed to load, or threw first), drop the
+      // class so the page falls back to plain, visible content.
+      root.classList.add('js');
+      setTimeout(function () {
+        if (!root.classList.contains('reveal-ready')) root.classList.remove('js');
+      }, 3000);
     })();
   </script>
 

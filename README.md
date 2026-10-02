@@ -19,8 +19,11 @@ cannot leave a component behind.
 
 **Content is visible if JavaScript fails.** Scroll-reveal sets `opacity: 0`,
 which would blank the page if the observer never fired — so the hidden state is
-scoped to `html.js` (set by that same head script) and backed by a timeout
-failsafe. A JS failure degrades to a plain, readable page.
+scoped to `html.js` (set by that same head script). If `script.js` hasn't
+claimed the page within 3 seconds (it failed to load, or threw first), the head
+script drops `html.js` again. Each module in `script.js` also runs in its own
+`try`, so one failure can't take the others down. A JS failure degrades to a
+plain, readable page.
 
 **GitHub projects grid.** Fetches repositories at runtime, filters forks and
 archived repos, and renders them with a 6-hour `localStorage` cache — the

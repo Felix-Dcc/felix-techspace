@@ -123,6 +123,10 @@
       if (!list.contains(e.target) && !toggle.contains(e.target)) setMenu(false);
     });
 
+    // Without IntersectionObserver the menu still works; the sticky
+    // background and active-link highlight are skipped.
+    if (!('IntersectionObserver' in window)) return;
+
     // Sticky background — observed rather than measured on every scroll tick.
     var sentinel = document.createElement('div');
     sentinel.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none;';
@@ -203,6 +207,7 @@
 
     if (reduceMotion || !('IntersectionObserver' in window)) {
       items.forEach(function (el) { el.classList.add('is-visible'); });
+      document.documentElement.classList.add('reveal-ready');
       return;
     }
 
@@ -225,6 +230,9 @@
       }
       revealObserver.observe(el);
     });
+
+    // Tells the head script's failsafe that reveal is in charge now.
+    document.documentElement.classList.add('reveal-ready');
 
     // Failsafe: if the observer never reports (some embedded//non-compositing
     // webviews never run IO callbacks), show everything rather than leave the
@@ -588,16 +596,14 @@
      BOOT
      ====================================================================== */
 
+  // Each module runs in isolation: one that throws is logged and skipped,
+  // and never takes the contact form or the reveal down with it.
   function init() {
-    theme();
-    nav();
-    scrollFx();
-    reveal();
-    counters();
-    magnetic();
-    projects();
-    contact();
-    misc();
+    [theme, nav, scrollFx, reveal, counters, magnetic, projects, contact, misc]
+      .forEach(function (module) {
+        try { module(); }
+        catch (e) { console.error('[' + module.name + ']', e); }
+      });
   }
 
   if (document.readyState === 'loading') {
