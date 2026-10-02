@@ -1155,8 +1155,42 @@ b, strong { color: var(--text); font-weight: 650; }
 }
 
 @media print {
-  .nav, .to-top, .scroll-progress, .backdrop, .hero-card, .contact-form, .mock-phones { display: none !important; }
+  /* Paper is white and backgrounds don't print by default, so print always
+     uses dark ink, whichever theme is on screen. */
+  :root,
+  :root[data-theme] {
+    --accent:     #4f46e5;
+    --accent-hi:  #3730a3;
+    --accent-2:   #6d28d9;
+    --signal:     #047857;
+    --bg:         #fff;
+    --bg-soft:    #fff;
+    --surface:    transparent;
+    --surface-2:  transparent;
+    --hairline:        rgba(0, 0, 0, .18);
+    --hairline-strong: rgba(0, 0, 0, .3);
+    --text:   #000;
+    --text-2: #2b2f36;
+    --text-3: #4a4f59;
+    color-scheme: light;
+  }
+
+  .nav, .to-top, .scroll-progress, .backdrop, .hero-card, .contact-form, .mock-phones,
+  .skip-link { display: none !important; }
   body { background: #fff; color: #000; }
   .section { padding-block: 1.5rem; page-break-inside: avoid; }
+
+  /* Scroll-reveal never runs on paper: print every section, fully faded in. */
+  .js .reveal { opacity: 1; transform: none; transition: none; }
+
+  /* Text drawn by a background fill would print white-on-white. */
+  .grad { background: none; color: inherit; }
+  .btn-primary, .project-lang {
+    background: none;
+    color: var(--text);
+    border-color: var(--hairline-strong);
+    box-shadow: none;
+  }
+
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .8em; color: #555; }
 }

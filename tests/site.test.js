@@ -531,3 +531,27 @@ test('contact form without JavaScript: the browser posts it to the page itself',
   assert.equal(body.email, 'ada@example.com');
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: printing / Save as PDF
+   ========================================================================== */
+
+for (const scheme of ['light', 'dark']) {
+  test('print (' + scheme + ' theme): every section prints, legibly, on white paper', async () => {
+    const t = await open({ colorScheme: scheme });
+    await t.page.waitForTimeout(800);
+    await t.page.emulateMedia({ media: 'print' });
+    // Real printing restyles from scratch; emulation runs the theme's colour
+    // transitions (up to 0.3s), so let them settle before measuring.
+    await t.page.waitForTimeout(500);
+    assert.deepEqual(await hiddenReveals(t.page), [], 'no section may print blank');
+    assert.equal(await t.page.$eval('.skip-link', (e) => getComputedStyle(e).display), 'none');
+    // Browsers print without background graphics by default, so text is
+    // judged against white. Disabled controls are exempt from contrast rules.
+    const failures = await t.page.evaluate(contrastFailures, {
+      selector: 'body *', mode: 'paper', min: 4.5, skip: '.is-disabled',
+    });
+    assert.deepEqual(failures, []);
+    await close(t);
+  });
+}
