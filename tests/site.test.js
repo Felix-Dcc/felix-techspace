@@ -800,3 +800,36 @@ test('the case-study placeholder is skipped by keyboard and is not a link', asyn
   assert.match(await ph.textContent(), /Case study — soon/);
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: project order is well defined, and the caption describes it
+   ========================================================================== */
+
+test('repos without a push date sort last instead of scrambling the order', async () => {
+  const missing = repo('missing');
+  delete missing.pushed_at;   // field absent → new Date(undefined) → NaN
+  const t = await open({
+    repos: [
+      missing,
+      repo('nodate', { pushed: null }),
+      repo('e1', { pushed: '2026-06-01T00:00:00Z' }),
+      repo('starred-undated', { stars: 3, pushed: null }),
+      repo('beta', { pushed: '2026-09-01T00:00:00Z' }),
+      repo('starred', { stars: 3, pushed: '2026-01-01T00:00:00Z' }),
+    ],
+  });
+  await t.page.waitForSelector('#projectsGrid article');
+  const names = await t.page.$$eval('#projectsGrid h3', (h) => h.map((e) => e.textContent));
+  assert.deepEqual(names.slice(0, 4), ['starred', 'starred-undated', 'beta', 'e1']);
+  assert.deepEqual(names.slice(4).sort(), ['missing', 'nodate']);
+  assert.doesNotMatch(await t.page.textContent('#projectsGrid'), /Invalid Date|NaN/);
+  await close(t);
+});
+
+test('the projects caption matches the sort order', async () => {
+  const t = await open();
+  const caption = await t.page.textContent('#projects .section-sub');
+  assert.doesNotMatch(caption, /newest first/i, 'cards are ordered by stars, then by last push');
+  assert.match(caption, /star/i);
+  await close(t);
+});

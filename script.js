@@ -432,13 +432,17 @@
     catch (e) { /* quota or private mode — cache is optional */ }
   }
 
+  // A missing star count or push date counts as 0, so the comparator never
+  // returns NaN (which leaves the order up to the engine).
+  function stars(r) { return r.stargazers_count || 0; }
+  function pushed(r) { return Date.parse(r.pushed_at) || 0; }
+
   function renderRepos(grid, repos) {
     var list = repos
       .filter(function (r) { return !r.fork && !r.archived; })
       .filter(function (r) { return EXCLUDE.indexOf(r.name) === -1; })
       .sort(function (a, b) {
-        return (b.stargazers_count - a.stargazers_count) ||
-               (new Date(b.pushed_at) - new Date(a.pushed_at));
+        return (stars(b) - stars(a)) || (pushed(b) - pushed(a));
       })
       .slice(0, MAX_CARDS);
 
