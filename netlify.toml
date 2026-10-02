@@ -15,6 +15,4 @@
   # _deploy/ is gitignored — Netlify regenerates it on every build, so the
   # repository never carries a duplicate copy of the site.
   command = "bash stage.sh"
-
-[build.environment]
-  NODE_VERSION = "20"
+  # No Node version is pinned: nothing in the build uses Node.
