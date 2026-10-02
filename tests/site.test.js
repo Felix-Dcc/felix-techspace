@@ -798,6 +798,9 @@ test('the case-study placeholder is skipped by keyboard and is not a link', asyn
   await t.page.keyboard.press('Tab');
   assert.doesNotMatch(await t.page.evaluate(() => document.activeElement.textContent), /Case study/);
   assert.match(await ph.textContent(), /Case study — soon/);
+  // Still announced as an unavailable link (and so exempt from text contrast).
+  assert.equal(await ph.getAttribute('role'), 'link');
+  assert.equal(await ph.getAttribute('aria-disabled'), 'true');
   await close(t);
 });
 
