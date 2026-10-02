@@ -730,8 +730,9 @@ test('versioned CSS/JS are cached long-term; HTML always revalidates', () => {
   assert.match(headerValue('/', 'Cache-Control'), /max-age=0, must-revalidate/);
 });
 
-// Runs stage.sh against a throwaway copy of the site, after `mutate(dir)`.
-function stageCopy(mutate) {
+// Runs stage.sh against a throwaway copy of the site, after `mutate(dir)`;
+// `inspect(dir)` can look at the result before the copy is removed.
+function stageCopy(mutate, inspect) {
   const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'stage-'));
   for (const f of ['index.html', 'style.css', 'script.js', 'theme-init.js', 'site.webmanifest',
     'robots.txt', 'sitemap.xml', '_headers', 'stage.sh']) {
@@ -740,6 +741,7 @@ function stageCopy(mutate) {
   fs.cpSync(path.join(ROOT, 'assets'), path.join(dir, 'assets'), { recursive: true });
   if (mutate) mutate(dir);
   const r = spawnSync('bash', ['stage.sh'], { cwd: dir, encoding: 'utf8' });
+  if (inspect) inspect(dir);
   fs.rmSync(dir, { recursive: true, force: true });
   return { status: r.status, out: r.stdout + r.stderr };
 }
@@ -751,4 +753,35 @@ test('stage.sh refuses to publish when a CSS/JS reference cannot be versioned', 
   });
   assert.notEqual(r.status, 0, r.out);
   assert.match(r.out, /ERROR: index.html has no "script\.js" reference/);
+});
+
+/* ==========================================================================
+   Fix: publish only the assets the site references
+   ========================================================================== */
+
+function referencedAssets(dir) {
+  const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const text = html + fs.readFileSync(path.join(dir, 'site.webmanifest'), 'utf8');
+  return [...new Set([...text.matchAll(/assets\/([\w.-]+\.(?:png|ico|jpg|webp|svg))/g)].map((m) => m[1]))].sort();
+}
+
+test('the publish folder holds exactly the referenced assets', () => {
+  const published = fs.readdirSync(path.join(DEPLOY, 'assets')).sort();
+  assert.deepEqual(published, referencedAssets(ROOT));
+  assert.ok(!published.includes('laundromart-desktop-login.png'), 'unused admin sign-in capture is published');
+});
+
+test('an image is published as soon as the page references it', () => {
+  let published;
+  const r = stageCopy((dir) => {
+    // Uncomment the second phone mock-up, as the TODO in index.html describes.
+    const f = path.join(dir, 'index.html');
+    const html = fs.readFileSync(f, 'utf8').replace(/<!-- TODO: add a second capture[\s\S]*?:\n([\s\S]*?)-->/,
+      (m, figure) => figure);
+    assert.match(html, /^\s*<figure class="mock-phone mock-phone--back">/m);
+    fs.writeFileSync(f, html);
+  }, (dir) => { published = fs.readdirSync(path.join(dir, '_deploy', 'assets')); });
+  assert.equal(r.status, 0, r.out);
+  assert.ok(published.includes('laundromart-mobile-2.png'));
+  assert.ok(!published.includes('laundromart-desktop-login.png'));
 });

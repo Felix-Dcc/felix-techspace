@@ -5,6 +5,7 @@
 #   _shots/            screenshot captures + capture helper pages
 #   _original-backup/  the pre-redesign originals
 #   assets/*.py        image tooling (contains absolute local paths)
+#   unused images      anything in assets/ the page doesn't reference
 #   .claude/           editor config
 #
 # Usage:  bash stage.sh
@@ -31,8 +32,16 @@ for f in style.css script.js theme-init.js; do
   fi
 done
 
-# Unreferenced placeholder — don't publish a "REPLACE ME" image.
-rm -f _deploy/assets/laundromart-mobile-2.png
+# Publish only the images the site actually references (HTML comments don't
+# count). Spares and placeholders — the admin sign-in capture, the "REPLACE ME"
+# phone shot — stay in the repo until a page uses them.
+refs=$(perl -0777 -pe 's/<!--.*?-->//gs' index.html; cat site.webmanifest)
+for f in _deploy/assets/*; do
+  case "$refs" in
+    *"assets/$(basename "$f")"*) ;;
+    *) rm -f "$f" ;;
+  esac
+done
 
 cp _headers _deploy/_headers
 
