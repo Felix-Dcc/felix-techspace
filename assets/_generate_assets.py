@@ -53,12 +53,12 @@ def rounded_mask(size, radius):
     return m
 
 
-def make_icon(px, pad_ratio=0.0):
+def make_icon(px, pad_ratio=0.0, radius_ratio=0.23):
     """Square app icon: gradient rounded tile + white F monogram."""
     ss = 4  # supersample for clean edges
     S = px * ss
     tile = linear_gradient((S, S), ACCENT_A, ACCENT_B)
-    tile.putalpha(rounded_mask((S, S), int(S * 0.23)))
+    tile.putalpha(rounded_mask((S, S), int(S * radius_ratio)))
 
     canvas = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     inset = int(S * pad_ratio)
@@ -76,6 +76,16 @@ def make_icon(px, pad_ratio=0.0):
     d.text((S / 2 - gw / 2 - box[0], S / 2 - gh / 2 - box[1] - S * 0.02),
            glyph, font=font, fill=(255, 255, 255, 255))
     return canvas.resize((px, px), Image.LANCZOS)
+
+
+def make_maskable(px):
+    """Full-bleed variant for the manifest's "maskable" purpose.
+
+    Android crops maskable icons to its own shape (circle, squircle...), so the
+    tile must be square and opaque to the edges, and the glyph must stay inside
+    the central 80% safe zone (the F does: it spans about half the tile).
+    """
+    return make_icon(px, radius_ratio=0).convert("RGB")
 
 
 def make_og():
@@ -153,6 +163,9 @@ if __name__ == "__main__":
     for size, name in [(16, "favicon-16x16.png"), (32, "favicon-32x32.png"),
                        (192, "android-chrome-192x192.png"), (512, "android-chrome-512x512.png")]:
         make_icon(size).save(out(name)); print("wrote", name)
+
+    make_maskable(512).save(out("android-chrome-maskable-512x512.png"), optimize=True)
+    print("wrote android-chrome-maskable-512x512.png")
 
     # apple-touch-icon needs an opaque background (iOS ignores alpha)
     apple = Image.new("RGB", (180, 180), INK)

@@ -833,3 +833,29 @@ test('the projects caption matches the sort order', async () => {
   assert.match(caption, /star/i);
   await close(t);
 });
+
+/* ==========================================================================
+   Fix: the maskable app icon is full-bleed
+   ========================================================================== */
+
+test('maskable manifest icon is opaque to the edges', async () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(DEPLOY, 'site.webmanifest'), 'utf8'));
+  const maskable = manifest.icons.filter((i) => i.purpose.split(' ').includes('maskable'));
+  assert.equal(maskable.length, 1);
+  const t = await open();
+  const px = await t.page.evaluate(async (src) => {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const alpha = (x, y) => g.getImageData(x, y, 1, 1).data[3];
+    const w = img.width - 1;
+    return { size: img.width + 'x' + img.height, corners: [alpha(0, 0), alpha(w, 0), alpha(0, w), alpha(w, w)] };
+  }, maskable[0].src);
+  assert.equal(px.size, maskable[0].sizes);
+  assert.deepEqual(px.corners, [255, 255, 255, 255], 'Android masks the icon to its own shape; transparent corners show as black or white');
+  await close(t);
+});
