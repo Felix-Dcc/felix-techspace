@@ -681,3 +681,29 @@ for (const scheme of ['light', 'dark']) {
     await close(t);
   });
 }
+
+/* ==========================================================================
+   Fix: _headers rules must not overlap
+   ========================================================================== */
+
+const PATHS = ['/', '/index.html', '/style.css', '/script.js', '/theme-init.js', '/assets/og-image.png'];
+const SECURITY = ['X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy',
+  'Strict-Transport-Security', 'Content-Security-Policy'];
+
+test('no header is set twice for any path (Netlify would merge the values)', () => {
+  for (const p of PATHS) {
+    const names = headersFor(p).map(([n]) => n.toLowerCase());
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    assert.deepEqual(dupes, [], 'duplicated on ' + p);
+  }
+});
+
+test('every path gets the full set of security headers', () => {
+  for (const p of PATHS) {
+    for (const h of SECURITY) assert.ok(headerValue(p, h), h + ' missing on ' + p);
+  }
+});
+
+test('Permissions-Policy lists only features browsers recognise', () => {
+  assert.doesNotMatch(headerValue('/', 'Permissions-Policy'), /interest-cohort/);
+});
