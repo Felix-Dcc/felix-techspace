@@ -99,8 +99,10 @@ npm test
 
 Netlify builds from `main`. `stage.sh` copies only production files into
 `_deploy/`, deliberately excluding the image tooling (which embeds absolute
-local paths), screenshot captures and backups. It fails the build rather than
-publishing a file containing a local path.
+local paths), screenshot captures, backups, and any image the page doesn't
+reference. It stamps CSS/JS URLs with a content hash (`style.css?v=…`) so they
+can be cached for a year, and it fails the build rather than publish a file
+containing a local path or a CSS/JS reference it couldn't version.
 
 ```bash
 bash stage.sh
