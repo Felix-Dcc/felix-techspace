@@ -2,14 +2,15 @@
    Felix Osei-Poku — Portfolio
    ----------------------------------------------------------------------------
    Modules
-     theme()        Theme toggle (head script does the first paint; this syncs)
+     fonts()        Applies the non-blocking web-font stylesheet
+     theme()        Theme toggle (theme-init.js does the first paint; this syncs)
      nav()          Mobile menu, sticky state, active-link highlighting
      scrollFx()     ONE rAF-gated scroll listener: progress bar + back-to-top
      reveal()       IntersectionObserver fade-ins with stagger
      counters()     Count-up animation for the metric strip
      magnetic()     Subtle pointer-follow on primary buttons
      projects()     GitHub repos, escaped + cached in localStorage
-     contact()      Client-side validation, Formspree POST, mailto fallback
+     contact()      Client-side validation, background POST to Netlify Forms
      misc()         Footer year
 
    Conventions
@@ -38,7 +39,10 @@
       .replace(/'/g, '&#39;');
   }
 
-  /** Only allow http(s) URLs through to an href. */
+  /**
+   * Only allow http(s) URLs through to an href. The result still goes through
+   * escapeHtml(): the URL parser keeps characters such as " in a hostname.
+   */
   function safeUrl(value) {
     try {
       var u = new URL(value, window.location.origin);
@@ -48,8 +52,24 @@
 
 
   /* ======================================================================
+     FONTS
+     The Google Fonts stylesheet loads as media="print" so it never blocks
+     first paint; switch it on once it has arrived. This used to be an
+     inline onload attribute, which the CSP would have to allow.
+     ====================================================================== */
+
+  function fonts() {
+    var link = $('#fontCss');
+    if (!link) return;
+    var apply = function () { link.media = 'all'; };
+    if (link.sheet) apply();
+    else link.addEventListener('load', apply);
+  }
+
+
+  /* ======================================================================
      THEME
-     The <head> script already applied the correct theme before first paint.
+     theme-init.js already applied the correct theme before first paint.
      This only keeps the button's label/state in sync and handles clicks.
      ====================================================================== */
 
@@ -122,6 +142,10 @@
       if (!list.classList.contains('is-open')) return;
       if (!list.contains(e.target) && !toggle.contains(e.target)) setMenu(false);
     });
+
+    // Without IntersectionObserver the menu still works; the sticky
+    // background and active-link highlight are skipped.
+    if (!('IntersectionObserver' in window)) return;
 
     // Sticky background — observed rather than measured on every scroll tick.
     var sentinel = document.createElement('div');
@@ -203,6 +227,7 @@
 
     if (reduceMotion || !('IntersectionObserver' in window)) {
       items.forEach(function (el) { el.classList.add('is-visible'); });
+      document.documentElement.classList.add('reveal-ready');
       return;
     }
 
@@ -225,6 +250,9 @@
       }
       revealObserver.observe(el);
     });
+
+    // Tells the head script's failsafe that reveal is in charge now.
+    document.documentElement.classList.add('reveal-ready');
 
     // Failsafe: if the observer never reports (some embedded//non-compositing
     // webviews never run IO callbacks), show everything rather than leave the
@@ -334,19 +362,12 @@
   var EXCLUDE = ['laundromart-'];                    // featured in its own section
   // TODO: add repo names here to hide them, e.g. 'Hello-World'
 
-  var LANG_STYLE = {
-    'Python':     { grad: 'linear-gradient(140deg,#3776ab,#ffd43b)' },
-    'Go':         { grad: 'linear-gradient(140deg,#00add8,#5dc9e2)' },
-    'JavaScript': { grad: 'linear-gradient(140deg,#f7df1e,#e2b714)' },
-    'TypeScript': { grad: 'linear-gradient(140deg,#3178c6,#235a97)' },
-    'HTML':       { grad: 'linear-gradient(140deg,#e34c26,#f06529)' },
-    'CSS':        { grad: 'linear-gradient(140deg,#264de4,#2965f1)' },
-    'Java':       { grad: 'linear-gradient(140deg,#007396,#ed8b00)' },
-    'C++':        { grad: 'linear-gradient(140deg,#00599c,#004482)' },
-    'C':          { grad: 'linear-gradient(140deg,#555,#a8b9cc)' },
-    'Shell':      { grad: 'linear-gradient(140deg,#89e051,#4e9a06)' },
-    'Dockerfile': { grad: 'linear-gradient(140deg,#0db7ed,#0a6a9c)' },
-    'default':    { grad: 'linear-gradient(140deg,#6366f1,#a78bfa)' }
+  // GitHub language → .lang-* thumbnail class (gradients live in style.css,
+  // so the CSP can forbid inline style attributes).
+  var LANG_CLASS = {
+    'Python': 'python', 'Go': 'go', 'JavaScript': 'javascript', 'TypeScript': 'typescript',
+    'HTML': 'html', 'CSS': 'css', 'Java': 'java', 'C++': 'cpp', 'C': 'c',
+    'Shell': 'shell', 'Dockerfile': 'dockerfile'
   };
 
   function skeletonMarkup() {
@@ -363,9 +384,11 @@
 
   function cardMarkup(repo) {
     var lang = repo.language || 'Code';
-    var style = LANG_STYLE[repo.language] || LANG_STYLE['default'];
-    var repoUrl = safeUrl(repo.html_url);
-    var homepage = repo.homepage ? safeUrl(repo.homepage) : '';
+    var langClass = Object.prototype.hasOwnProperty.call(LANG_CLASS, repo.language)
+      ? LANG_CLASS[repo.language]
+      : 'default';
+    var repoUrl = escapeHtml(safeUrl(repo.html_url));
+    var homepage = repo.homepage ? escapeHtml(safeUrl(repo.homepage)) : '';
     var updated = repo.pushed_at ? new Date(repo.pushed_at) : null;
     var when = updated
       ? updated.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
@@ -373,7 +396,7 @@
 
     return '' +
       '<article class="card project reveal">' +
-      '  <div class="project-thumb" style="background:' + style.grad + '">' +
+      '  <div class="project-thumb lang-' + langClass + '">' +
       '    <span class="project-lang">' + escapeHtml(lang) + '</span>' +
       '  </div>' +
       '  <div class="project-body">' +
@@ -396,6 +419,9 @@
       var raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       var box = JSON.parse(raw);
+      // Anything not shaped like writeCache() output is refetched, not trusted.
+      if (!box || typeof box.at !== 'number' || !Array.isArray(box.data)) return null;
+      if (!box.data.every(function (r) { return r && typeof r === 'object'; })) return null;
       if (Date.now() - box.at > CACHE_TTL) return null;
       return box.data;
     } catch (e) { return null; }
@@ -406,13 +432,17 @@
     catch (e) { /* quota or private mode — cache is optional */ }
   }
 
+  // A missing star count or push date counts as 0, so the comparator never
+  // returns NaN (which leaves the order up to the engine).
+  function stars(r) { return r.stargazers_count || 0; }
+  function pushed(r) { return Date.parse(r.pushed_at) || 0; }
+
   function renderRepos(grid, repos) {
     var list = repos
       .filter(function (r) { return !r.fork && !r.archived; })
       .filter(function (r) { return EXCLUDE.indexOf(r.name) === -1; })
       .sort(function (a, b) {
-        return (b.stargazers_count - a.stargazers_count) ||
-               (new Date(b.pushed_at) - new Date(a.pushed_at));
+        return (stars(b) - stars(a)) || (pushed(b) - pushed(a));
       })
       .slice(0, MAX_CARDS);
 
@@ -472,6 +502,8 @@
 
   /* ======================================================================
      CONTACT FORM
+     Netlify Forms accepts a url-encoded POST to any page of the site; the
+     hidden form-name field tells it which form the fields belong to.
      ====================================================================== */
 
   var MAILTO = 'oseipokufelix0@gmail.com';
@@ -479,6 +511,10 @@
   function contact() {
     var form = $('#contactForm');
     if (!form) return;
+
+    // The markup leaves browser validation on for visitors without JS; with
+    // JS, the inline messages below take over.
+    form.noValidate = true;
 
     var status = $('#formStatus');
     var submit = $('#cfSubmit');
@@ -530,29 +566,15 @@
       var bad = validate(true);
       if (bad) { bad.focus(); say('Please fix the highlighted fields.', 'fail'); return; }
 
-      var action = form.getAttribute('action') || '';
-      var configured = action.indexOf('YOUR_FORM_ID') === -1 && /^https?:/.test(action);
-
-      // Not wired to a form service yet → hand off to the visitor's mail client.
-      if (!configured) {
-        var subject = encodeURIComponent('Portfolio enquiry from ' + $('#cf-name').value.trim());
-        var body = encodeURIComponent(
-          $('#cf-msg').value.trim() + '\n\n— ' + $('#cf-name').value.trim() + ' (' + $('#cf-email').value.trim() + ')'
-        );
-        window.location.href = 'mailto:' + MAILTO + '?subject=' + subject + '&body=' + body;
-        say('Opening your email app…');
-        return;
-      }
-
       submit.disabled = true;
       var label = submit.textContent;
       submit.textContent = 'Sending…';
       say('');
 
-      fetch(action, {
+      fetch('/', {
         method: 'POST',
-        body: new FormData(form),
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(form)).toString()
       })
         .then(function (res) {
           if (!res.ok) throw new Error('Status ' + res.status);
@@ -588,16 +610,14 @@
      BOOT
      ====================================================================== */
 
+  // Each module runs in isolation: one that throws is logged and skipped,
+  // and never takes the contact form or the reveal down with it.
   function init() {
-    theme();
-    nav();
-    scrollFx();
-    reveal();
-    counters();
-    magnetic();
-    projects();
-    contact();
-    misc();
+    [fonts, theme, nav, scrollFx, reveal, counters, magnetic, projects, contact, misc]
+      .forEach(function (module) {
+        try { module(); }
+        catch (e) { console.error('[' + module.name + ']', e); }
+      });
   }
 
   if (document.readyState === 'loading') {

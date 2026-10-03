@@ -7,21 +7,11 @@
 
   <!-- ============================================================
        THEME BOOTSTRAP — must run before first paint (fixes FOUC).
-       Resolves: saved preference → OS preference → dark.
-       Kept inline and synchronous on purpose; do not move to script.js.
+       Synchronous on purpose: no defer/async, and do not fold it into
+       script.js. A file rather than inline so the CSP needs no
+       'unsafe-inline'.
        ============================================================ -->
-  <script>
-    (function () {
-      try {
-        var saved = localStorage.getItem('theme');
-        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-        document.documentElement.setAttribute('data-theme', theme);
-      } catch (e) { /* private mode — fall through to the dark default */ }
-      // Marks that scripting is alive. Scroll-reveal only hides content when
-      // this class is present, so a JS failure can never leave a blank page.
-      document.documentElement.classList.add('js');
-    })();
-  </script>
+  <script src="theme-init.js"></script>
 
   <!-- ── Primary meta ─────────────────────────────────────────── -->
   <title>Felix Osei-Poku — Backend Software Engineer</title>
@@ -67,13 +57,15 @@
   <link rel="manifest" href="site.webmanifest">
 
   <!-- ── Fonts ────────────────────────────────────────────────── -->
+  <!-- Loads as media="print" so it never blocks first paint; script.js
+       switches it to "all" (an inline onload would need 'unsafe-inline'). -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet"
+  <link rel="stylesheet" id="fontCss"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-    media="print" onload="this.media='all'">
+    media="print">
   <noscript>
     <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -447,9 +439,11 @@
             rel="noopener noreferrer">
             Source code
           </a>
-          <!-- TODO: write the case study, then un-hide this button -->
-          <a class="btn btn-ghost magnetic is-disabled" href="#work" aria-disabled="true"
-            title="Case study in progress">Case study — soon</a>
+          <!-- TODO: write the case study, then make this a real link again:
+               <a class="btn btn-ghost magnetic" href="…">Case study</a>
+               Until then a disabled link with no href: announced as unavailable,
+               and skipped by the Tab key. -->
+          <span class="btn btn-ghost is-disabled" role="link" aria-disabled="true">Case study — soon</span>
         </div>
       </div>
     </section>
@@ -462,7 +456,7 @@
         <header class="section-head reveal">
           <p class="eyebrow"><span class="eyebrow-rule" aria-hidden="true"></span>More work</p>
           <h2 id="projects-h">Other projects</h2>
-          <p class="section-sub">Pulled live from GitHub, newest first.</p>
+          <p class="section-sub">Pulled live from GitHub, starred first.</p>
         </header>
 
         <div class="cards" id="projectsGrid" aria-live="polite" aria-busy="true"></div>
@@ -757,10 +751,14 @@
           </ul>
         </div>
 
-        <!-- TODO: create a free form endpoint at https://formspree.io and paste the ID below.
-             Until then the form falls back to opening the visitor's mail client. -->
-        <form class="card contact-form reveal" id="contactForm" method="POST"
-          action="https://formspree.io/f/YOUR_FORM_ID" novalidate>
+        <!-- Netlify Forms: Netlify finds this form when it deploys _deploy/ and
+             lists submissions under Forms in the site dashboard (form detection
+             must be enabled there once). script.js posts it in the background;
+             without JS the browser posts it natively and Netlify answers with
+             its own thank-you page. -->
+        <form class="card contact-form reveal" id="contactForm" name="contact" method="POST"
+          data-netlify="true" netlify-honeypot="bot-field">
+          <input type="hidden" name="form-name" value="contact">
           <h3>Send a message</h3>
 
           <div class="field">
@@ -783,10 +781,11 @@
             <p class="err" id="cf-msg-err" hidden>Please add a short message.</p>
           </div>
 
-          <!-- honeypot: bots fill it, humans never see it -->
+          <!-- honeypot: bots fill it, humans never see it; Netlify discards
+               any submission where it has a value -->
           <div class="hp" aria-hidden="true">
             <label for="cf-company">Company</label>
-            <input id="cf-company" name="_gotcha" type="text" tabindex="-1" autocomplete="off">
+            <input id="cf-company" name="bot-field" type="text" tabindex="-1" autocomplete="off">
           </div>
 
           <button class="btn btn-primary btn-block magnetic" type="submit" id="cfSubmit">Send message</button>
